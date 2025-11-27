@@ -1,14 +1,80 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// Prisma Schema - Logistics Service
+// Database: cropfresh_logistics
+// Purpose: Route management, tracking
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+// Route Model
+model Route {
+  id            Int       @id @default(autoincrement())
+  haulerId      Int       @map("hauler_id")
+  status        RouteStatus @default(ASSIGNED)
+  estimatedTime Int?      @map("estimated_time") // in minutes
+  actualTime    Int?      @map("actual_time")
+  distance      Decimal?  @db.Decimal(10, 2) // in km
+  earnings      Decimal?  @db.Decimal(10, 2)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  pickups       Pickup[]
+  deliveries    Delivery[]
+
+  @@map("routes")
+}
+
+// Pickup Model
+model Pickup {
+  id            Int       @id @default(autoincrement())
+  routeId       Int       @map("route_id")
+  farmerId      Int       @map("farmer_id")
+  location      String    @db.VarChar(255) // Lat,Long or Address
+  scheduledTime DateTime  @map("scheduled_time") @db.Timestamptz(6)
+  actualTime    DateTime? @map("actual_time") @db.Timestamptz(6)
+  status        StopStatus @default(PENDING)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  route         Route     @relation(fields: [routeId], references: [id])
+
+  @@map("pickups")
+}
+
+// Delivery Model
+model Delivery {
+  id            Int       @id @default(autoincrement())
+  routeId       Int       @map("route_id")
+  buyerId       Int       @map("buyer_id")
+  location      String    @db.VarChar(255)
+  scheduledTime DateTime  @map("scheduled_time") @db.Timestamptz(6)
+  actualTime    DateTime? @map("actual_time") @db.Timestamptz(6)
+  status        StopStatus @default(PENDING)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  route         Route     @relation(fields: [routeId], references: [id])
+
+  @@map("deliveries")
+}
+
+enum RouteStatus {
+  ASSIGNED
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum StopStatus {
+  PENDING
+  ARRIVED
+  COMPLETED
+  SKIPPED
 }
