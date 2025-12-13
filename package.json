@@ -21,6 +21,7 @@
         "@opentelemetry/resources": "^2.2.0",
         "@opentelemetry/sdk-node": "^0.208.0",
         "@opentelemetry/semantic-conventions": "^1.38.0",
+        "@prisma/adapter-pg": "7.0",
         "@prisma/client": "7.0",
         "express": "^5.1.0",
         "pino": "^10.1.0",
