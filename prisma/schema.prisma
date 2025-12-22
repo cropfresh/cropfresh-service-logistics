@@ -78,3 +78,85 @@ enum StopStatus {
   COMPLETED
   SKIPPED
 }
+
+// ============================================================================
+// Drop Point Models (Story 3.4)
+// ============================================================================
+
+/// Drop point location for farmer produce drop-off
+/// Uses PostGIS GEOGRAPHY(POINT, 4326) for geospatial queries
+model DropPoint {
+  id               String   @id @default(uuid())
+  name             String   @db.VarChar(100)
+  address          String   @db.Text
+  district         String   @db.VarChar(50)
+  // PostGIS geography stored via raw SQL - Prisma Unsupported type
+  // Use raw query: ST_Distance(location, ST_Point(lng, lat)::geography)
+  latitude         Decimal  @db.Decimal(10, 8)
+  longitude        Decimal  @db.Decimal(11, 8)
+  operatingHours   Json?    @map("operating_hours") // {"monday": {"open": "06:00", "close": "18:00"}, ...}
+  maxDailyCapacity Int      @default(5000) @map("max_daily_capacity_kg") // kg per day
+  crateInventory   Json?    @map("crate_inventory") // {"tomato": 50, "potato": 30, ...}
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  timeSlots   TimeSlotCapacity[]
+  assignments DropPointAssignment[]
+
+  @@index([district])
+  @@index([isActive])
+  @@map("drop_points")
+}
+
+/// Tracks capacity usage per time slot per drop point
+model TimeSlotCapacity {
+  id             Int      @id @default(autoincrement())
+  dropPointId    String   @map("drop_point_id")
+  slotDate       DateTime @map("slot_date") @db.Date
+  slotStartHour  Int      @map("slot_start_hour") // 7 = 7:00 AM
+  slotEndHour    Int      @map("slot_end_hour") // 9 = 9:00 AM
+  maxCapacityKg  Int      @default(1000) @map("max_capacity_kg")
+  usedCapacityKg Int      @default(0) @map("used_capacity_kg")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  dropPoint DropPoint @relation(fields: [dropPointId], references: [id])
+
+  @@unique([dropPointId, slotDate, slotStartHour])
+  @@map("time_slot_capacities")
+}
+
+/// Assignment of a listing to a drop point (one-to-one with listing)
+model DropPointAssignment {
+  id                  Int              @id @default(autoincrement())
+  listingId           Int              @unique @map("listing_id") // From catalog service
+  dropPointId         String           @map("drop_point_id")
+  farmerId            Int              @map("farmer_id")
+  farmerLatitude      Decimal          @map("farmer_latitude") @db.Decimal(10, 8)
+  farmerLongitude     Decimal          @map("farmer_longitude") @db.Decimal(11, 8)
+  distanceKm          Decimal          @map("distance_km") @db.Decimal(5, 2)
+  pickupWindowStart   DateTime         @map("pickup_window_start") @db.Timestamptz(6)
+  pickupWindowEnd     DateTime         @map("pickup_window_end") @db.Timestamptz(6)
+  cratesNeeded        Int              @default(1) @map("crates_needed")
+  status              AssignmentStatus @default(ASSIGNED)
+  changeReason        String?          @map("change_reason") @db.Text
+  previousDropPointId String?          @map("previous_drop_point_id")
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  dropPoint DropPoint @relation(fields: [dropPointId], references: [id])
+
+  @@index([farmerId])
+  @@index([status])
+  @@map("drop_point_assignments")
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  EN_ROUTE
+  ARRIVED
+  COMPLETED
+  CANCELLED
+  REASSIGNED
+}

@@ -51,17 +51,25 @@ const PROTO_PATH = path.join(__dirname, '../protos/proto/logistics.proto');
 const PACKAGE_NAME = 'cropfresh.logistics';
 const SERVICE_NAME_GRPC = 'Service';
 
+import { dropPointServiceHandlers } from './grpc/services/drop-point';
+
 (async () => {
   try {
     const grpcServer = new GrpcServer(GRPC_PORT, logger);
     const packageDef = grpcServer.loadProto(PROTO_PATH);
     const proto = packageDef.cropfresh.logistics as any;
-    const serviceDef = proto[SERVICE_NAME_GRPC].service;
 
+    // Register LogisticsService
+    const serviceDef = proto[SERVICE_NAME_GRPC].service;
     grpcServer.addService(serviceDef, logisticsServiceHandlers(logger));
+
+    // Register DropPointService (Story 3.4)
+    const dropPointServiceDef = proto.DropPointService.service;
+    grpcServer.addService(dropPointServiceDef, dropPointServiceHandlers(logger));
 
     await grpcServer.start();
   } catch (err) {
     logger.error(err, 'Failed to start gRPC server');
   }
 })();
+
